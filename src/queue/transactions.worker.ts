@@ -12,7 +12,6 @@ export class TransactionsWorker implements OnModuleInit, OnModuleDestroy {
             "tx-auth",
             async (job) => {
                 console.log("Processing job:", job.data)
-
                 return true
             },
             {

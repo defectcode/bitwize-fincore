@@ -34,6 +34,8 @@ model OutboxEvent {
 enum AuthStatus {
   APPROVED
   DECLINED
+  CAPTURED
+  REVERSED
 }
 
 model Authorization {
@@ -45,6 +47,8 @@ model Authorization {
   currency       String
   status         AuthStatus
   createdAt      DateTime   @default(now())
+  capture        Capture?
+  reversal       Reversal?
 }
 
 model Card {
@@ -52,4 +56,24 @@ model Card {
   balance   Int
   currency  String
   createdAt DateTime @default(now())
+}
+
+model Capture {
+  id              String   @id @default(uuid())
+  authorizationId String   @unique
+  idempotencyKey  String   @unique
+  amount          String
+  createdAt       DateTime @default(now())
+
+  authorization Authorization @relation(fields: [authorizationId], references: [id])
+}
+
+model Reversal {
+  id              String   @id @default(uuid())
+  authorizationId String   @unique
+  idempotencyKey  String   @unique
+  amount          String
+  createdAd       DateTime @default(now())
+
+  authorization Authorization @relation(fields: [authorizationId], references: [id])
 }

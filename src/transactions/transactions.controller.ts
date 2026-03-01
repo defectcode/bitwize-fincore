@@ -1,6 +1,8 @@
-import { Body, Controller, Post } from '@nestjs/common';
+import { Body, Controller, Param, Post } from '@nestjs/common';
 import { TransactionsService } from './transactions.service';
 import { AuthorizeDto } from './dto/authorize.dto'
+import { ReverseDto } from './dto/reverse.dto'
+import { CaptureDto } from './dto/capture.dto'
 
 @Controller('transactions')
 export class TransactionsController {
@@ -9,5 +11,15 @@ export class TransactionsController {
   @Post("/authorize")
   authorize(@Body() dto: AuthorizeDto) {
     return this.txService.authorize(dto)
+  }
+
+  @Post("/:authId/capture")
+  capture(@Param("authId") authId: string, @Body() dto: CaptureDto) {
+    return this.txService.capture(authId, dto)
+  }
+
+  @Post("/:authId/reverse")
+  reverse(@Param("auth") authId: string, @Body() dto: ReverseDto) {
+    return this.txService.reverse(authId, dto)
   }
 }
