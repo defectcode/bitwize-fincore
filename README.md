@@ -1,4 +1,4 @@
-`Bitwize FinCore`
+{`Bitwize FinCore`}
 
 `Bitwize FinCore` is a simplified financial core system built with NestJS.
 It simulates real-world card transaction authorization with atomic balance updates, idempotency control, and event-driven architecture.
@@ -9,7 +9,7 @@ Overview
 
 This project models a simplified fintech authorization flow.
 
-It includes:
+`It includes:`
 
 - Transaction authorization
 - Atomic balance debit
