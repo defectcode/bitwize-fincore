@@ -1,0 +1,55 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum OutboxStatus {
+  PENDING
+  SENDING
+  SENT
+  FAILED
+}
+
+model OutboxEvent {
+  id          String       @id @default(uuid())
+  eventType   String
+  aggregateId String
+  payload     Json
+  status      OutboxStatus @default(PENDING)
+  lockedUntil DateTime?
+  attempts    Int          @default(0)
+  lastError   String?
+  createdAt   DateTime     @default(now())
+  sentAt      DateTime?
+
+  @@index([status, createdAt])
+  @@index([lockedUntil])
+  @@index([eventType])
+}
+
+enum AuthStatus {
+  APPROVED
+  DECLINED
+}
+
+model Authorization {
+  id             String     @id @default(uuid())
+  idempotencyKey String     @unique
+  cardId         String
+  merchantId     String
+  amount         String
+  currency       String
+  status         AuthStatus
+  createdAt      DateTime   @default(now())
+}
+
+model Card {
+  id        String   @id @default(uuid())
+  balance   Int
+  currency  String
+  createdAt DateTime @default(now())
+}
