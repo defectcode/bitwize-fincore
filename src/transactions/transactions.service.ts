@@ -20,9 +20,8 @@ export class TransactionsService {
  
 	async capture(authId: string, dto: CaptureDto) {
 		const created = await this.prisma.$transaction(async (tx) => {
-			const existingCapture = await tx.capture.findUnique({
-				where: { idempotencyKey: dto.idempotencyKey }
-			})
+			const existingCapture = await tx.capture.findUnique({ where: { idempotencyKey: dto.idempotencyKey } })
+
 			if(existingCapture) return existingCapture
 
 			const auth = await tx.authorization.findUnique({ where: { id: authId } })
@@ -31,7 +30,6 @@ export class TransactionsService {
 			
 			if (auth.status === "CAPTURED") {
 				const cap = await tx.capture.findUnique({ where: { authorizationId: auth.id } })
-
 				if (cap) return cap
 				throw new Error("Captured state without capture record")
 			}
@@ -72,6 +70,7 @@ export class TransactionsService {
 			if (existingReverse) return existingReverse
 
 			const auth = await tx.authorization.findUnique({ where: { id: authId} })
+
 			if (!auth) throw new Error("Authorization not found")
 
 			if (auth.status === "REVERSED") {
@@ -187,7 +186,8 @@ export class TransactionsService {
 					return existing;
 				}
 			}
-		throw error;
+			
+			throw error;
 		}
 	}
 }
