@@ -1,10 +1,14 @@
+import "dotenv/config";
 import {
   PrismaClient,
   AuthStatus,
   OutboxStatus,
-  type Authorization,
+  WalletStatus,
+  LedgerEntryType,
+  type User,
+  type Wallet,
   type Card,
-  type OutboxEvent,
+  type Authorization,
 } from "@prisma/client";
 import { randomUUID } from "crypto";
 
@@ -17,47 +21,86 @@ function randomInt(min: number, max: number) {
 async function main() {
   console.log("Seeding data...");
 
+  const users: User[] = [];
+  const wallets: Wallet[] = [];
   const cards: Card[] = [];
   const authorizations: Authorization[] = [];
-  const outboxEvents: OutboxEvent[] = [];
 
-  // 1) Cards
   for (let i = 0; i < 100; i++) {
-    const card = await prisma.card.create({
+    const user = await prisma.user.create({
       data: {
-        balance: randomInt(1000, 10000),
-        currency: "USD",
+        email: `user${i}@bitwize.dev`,
+        fullName: `User ${i}`,
       },
     });
+
+    users.push(user);
+  }
+
+  console.log(`Users created: ${users.length}`);
+
+  for (let i = 0; i < 100; i++) {
+    const user = users[randomInt(0, users.length - 1)];
+
+    const wallet = await prisma.wallet.create({
+      data: {
+        userId: user.id,
+        balance: randomInt(10000, 500000),
+        currency: "USD",
+        status: WalletStatus.ACTIVE,
+      },
+    });
+
+    wallets.push(wallet);
+  }
+
+  console.log(`Wallets created: ${wallets.length}`);
+
+  for (let i = 0; i < 100; i++) {
+    const wallet = wallets[randomInt(0, wallets.length - 1)];
+
+    const card = await prisma.card.create({
+      data: {
+        walletId: wallet.id,
+        balance: wallet.balance,
+        currency: wallet.currency,
+      },
+    });
+
     cards.push(card);
   }
-  console.log("Cards created:", cards.length);
 
-  // 2) Authorizations
+  console.log(`Cards created: ${cards.length}`);
+
   for (let i = 0; i < 100; i++) {
     const card = cards[randomInt(0, cards.length - 1)];
-    const amount = randomInt(10, 500);
+    const amount = randomInt(100, 5000);
 
     const auth = await prisma.authorization.create({
       data: {
         idempotencyKey: `seed-auth-${i}-${randomUUID()}`,
         cardId: card.id,
         merchantId: randomUUID(),
-        amount: amount.toString(),
-        currency: "USD",
+        amount,
+        currency: card.currency,
         status: AuthStatus.APPROVED,
       },
     });
 
     authorizations.push(auth);
-  }
-  console.log("Authorizations created:", authorizations.length);
 
-  // 3) OutboxEvents
-  for (let i = 0; i < 100; i++) {
-    const auth = authorizations[randomInt(0, authorizations.length - 1)];
+    await prisma.ledgerEntry.create({
+      data: {
+        walletId: card.walletId,
+        authorizationId: auth.id,
+        type: LedgerEntryType.DEBIT,
+        amount,
+        currency: card.currency,
+        description: "Seed authorization debit",
+      },
+    });
 
-    const evt = await prisma.outboxEvent.create({
+    await prisma.outboxEvent.create({
       data: {
         eventType: "AUTH_APPROVED",
         aggregateId: auth.id,
@@ -65,11 +108,10 @@ async function main() {
         status: OutboxStatus.PENDING,
       },
     });
-
-    outboxEvents.push(evt);
   }
-  console.log("OutboxEvents created:", outboxEvents.length);
 
+  console.log(`Authorizations created: ${authorizations.length}`);
+  console.log("Ledger entries and outbox events created");
   console.log("Seeding finished");
 }
 

@@ -14,6 +14,24 @@ enum OutboxStatus {
   FAILED
 }
 
+enum AuthStatus {
+  APPROVED
+  DECLINED
+  CAPTURED
+  REVERSED
+}
+
+enum LedgerEntryType {
+  DEBIT
+  CREDIT
+}
+
+enum WalletStatus {
+  ACTIVE
+  BLOCKED
+  CLOSED
+}
+
 model OutboxEvent {
   id          String       @id @default(uuid())
   eventType   String
@@ -31,11 +49,43 @@ model OutboxEvent {
   @@index([eventType])
 }
 
-enum AuthStatus {
-  APPROVED
-  DECLINED
-  CAPTURED
-  REVERSED
+model User {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  fullName  String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  wallets Wallet[]
+}
+
+model Wallet {
+  id        String       @id @default(uuid())
+  userId    String
+  balance   Int          @default(0)
+  currency  String
+  status    WalletStatus @default(ACTIVE)
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+
+  user   User          @relation(fields: [userId], references: [id])
+  cards  Card[]
+  ledger LedgerEntry[]
+
+  @@index([userId])
+}
+
+model Card {
+  id        String   @id @default(uuid())
+  walletId  String
+  balance   Int
+  currency  String
+  createdAt DateTime @default(now())
+
+  wallet Wallet          @relation(fields: [walletId], references: [id])
+  auths  Authorization[]
+
+  @@index([walletId])
 }
 
 model Authorization {
@@ -43,26 +93,26 @@ model Authorization {
   idempotencyKey String     @unique
   cardId         String
   merchantId     String
-  amount         String
+  amount         Int
   currency       String
   status         AuthStatus
   createdAt      DateTime   @default(now())
-  capture        Capture?
-  reversal       Reversal?
-}
 
-model Card {
-  id        String   @id @default(uuid())
-  balance   Int
-  currency  String
-  createdAt DateTime @default(now())
+  card          Card          @relation(fields: [cardId], references: [id])
+  capture       Capture?
+  reversal      Reversal?
+  ledgerEntries LedgerEntry[]
+
+  @@index([cardId])
+  @@index([merchantId])
+  @@index([status])
 }
 
 model Capture {
   id              String   @id @default(uuid())
   authorizationId String   @unique
   idempotencyKey  String   @unique
-  amount          String
+  amount          Int
   createdAt       DateTime @default(now())
 
   authorization Authorization @relation(fields: [authorizationId], references: [id])
@@ -72,8 +122,26 @@ model Reversal {
   id              String   @id @default(uuid())
   authorizationId String   @unique
   idempotencyKey  String   @unique
-  amount          String
-  createdAd       DateTime @default(now())
+  amount          Int
+  createdAt       DateTime @default(now())
 
   authorization Authorization @relation(fields: [authorizationId], references: [id])
+}
+
+model LedgerEntry {
+  id              String          @id @default(uuid())
+  walletId        String
+  authorizationId String?
+  type            LedgerEntryType
+  amount          Int
+  currency        String
+  description     String?
+  createdAt       DateTime        @default(now())
+
+  wallet        Wallet         @relation(fields: [walletId], references: [id])
+  authorization Authorization? @relation(fields: [authorizationId], references: [id])
+
+  @@index([walletId, createdAt])
+  @@index([authorizationId])
+  @@index([type])
 }
