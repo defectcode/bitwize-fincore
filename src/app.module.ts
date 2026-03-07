@@ -6,9 +6,10 @@ import { QueueModule } from './queue/queue.module';
 import { OutboxModule } from './outbox/outbox.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { TransactionsModule } from './transactions/transactions.module';
+import { WalletsModule } from './wallets/wallets.module';
 
 @Module({
-  imports: [RedisModule, QueueModule, OutboxModule, PrismaModule, TransactionsModule],
+  imports: [RedisModule, QueueModule, OutboxModule, PrismaModule, TransactionsModule, WalletsModule],
   controllers: [AppController],
   providers: [AppService],
 })
