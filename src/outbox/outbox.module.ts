@@ -10,6 +10,6 @@ import { OutboxProcessor } from './outbox.processor'
 	imports: [PrismaModule],
 	controllers: [OutboxController],
 	providers: [OutboxService, OutboxDispatcher, OutboxWorker, OutboxProcessor],
-	exports: [OutboxService]
+	exports: [OutboxService, OutboxProcessor]
 })
 export class OutboxModule {}

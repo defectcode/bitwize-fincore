@@ -1,90 +1,133 @@
-import { Injectable, Logger, OnModuleInit } from '@nestjs/common'
+import { Injectable, Logger, OnModuleDestroy, OnModuleInit } from '@nestjs/common'
 import { PrismaService } from 'src/prisma/prisma.service'
 import { OutboxProcessor } from './outbox.processor'
-import { backoffMs, OUTBOX_BATCH_SIZE, OUTBOX_LOCK_MS } from './outbox.constants'
+import { getBackoffMs, OUTBOX_BATCH_SIZE, OUTBOX_LOCK_MS, OUTBOX_LOOP_DELAY_MS } from './outbox.constants'
 
 
 @Injectable()
-export class OutboxWorker implements OnModuleInit {
-    private readonly logger = new Logger(OutboxWorker.name)
-    private running = false
+export class OutboxWorker implements OnModuleInit, OnModuleDestroy {
 
-    constructor( private readonly prisma: PrismaService, private readonly processor: OutboxProcessor){}
+    private readonly logger = new Logger(OutboxWorker.name)
+
+    private isRunning = false
+    private shouldStop = false
+
+    constructor( private readonly prisma: PrismaService, private readonly processor: OutboxProcessor) {}
 
     onModuleInit() {
-        this.running = true
-        this.loop().catch((e) => this.logger.error(e))
+        this.logger.log("Outbox worker started")
+        this.startLoop().catch((error) => {
+            this.logger.error("Outbox worker crashed ", error?.stack || String(error))
+        })
     }
 
-    private async loop() {
-        while(this.running) {
+    onModuleDestroy() {
+        this.shouldStop = true
+        this.logger.log("Outbox worker stopping")
+    }
+
+    private async startLoop() {
+        if (this.isRunning) return
+
+        this.isRunning = true
+
+        while(!this.shouldStop) {
             try {
-                await this.tick()
+                await this.processBatch()
             } catch (error: any) {
-                this.logger.error(error?.message || error)
+                this.logger.error(`Outbox loop error: ${error?.message || error}`)
             }
-            await new Promise((r) => setTimeout(r, 500))
-        } 
+
+            await this.sleep(OUTBOX_LOOP_DELAY_MS)
+        }
+        this.isRunning = false
     }
 
-    private async tick() {
+    private async processBatch() {
         const now = new Date()
-        const lockUntil = new Date(Date.now() + OUTBOX_LOCK_MS)
 
         const candidates = await this.prisma.outboxEvent.findMany({
-            where: { 
+            where: {
                 status: "PENDING",
-                OR: [{ lockedUntil: null }, { lockedUntil: { lt: now } }]
+                OR: [
+                    { lockedUntil: null },
+                    { lockedUntil: { lt: now } }
+                ],
             },
             orderBy: { createdAt: "asc" },
             take: OUTBOX_BATCH_SIZE
         })
 
-        if (candidates.length === 0) return
+        if(candidates.length === 0) return
 
-        for (const event of candidates) {
-            const claimed = await this.prisma.outboxEvent.updateMany({
-                where: {
-                    id: event.id,
-                    status: "PENDING",
-                    OR: [{ lockedUntil: null }, { lockedUntil: { lt: now } }],
-                },
-                data: {
-                    status: "PENDING",
-                    lockedUntil: lockUntil
-                }
-            })
+        for (const candidate of candidates) {
+            const claimed = await this.claimEvent(candidate.id)
 
-            if (claimed.count !== 1) continue
+            if (!claimed) {
+                continue
+            }
 
             try {
-                await this.processor.process(event)
-
                 await this.prisma.outboxEvent.update({
-                    where: { id: event.id },
+                    where: { id: claimed.id },
                     data: {
                         status: "SENT",
-                        lockedUntil: null,
                         sentAt: new Date(),
+                        lockedUntil: null,
                         lastError: null
                     }
                 })
-            } catch(error: any) {
-                const errorMsg = String(error?.message || error)
-                const attempts = event.attempts + 1
-                const nextTry = new Date(Date.now() + backoffMs(attempts))
+                
+                this.logger.log(`Outbox event sent: ${claimed.id}`)
+            } catch (error: any) {
+                const nextAttempts = claimed.attempts + 1
+                const retryAt = new Date(Date.now() + getBackoffMs(nextAttempts))
 
                 await this.prisma.outboxEvent.update({
-                    where: { id: event.id },
+                    where: { id: claimed.id },
                     data: {
                         status: "PENDING",
-                        attempts,
-                        lastError: errorMsg,
-                        lockedUntil: nextTry
+                        attempts: nextAttempts,
+                        lastError: error?.message || "Unknown outbox processing error",
+                        lockedUntil: retryAt
                     }
                 })
-                this.logger.warn(`Outbox failed id=${event.id} attemtps=${attempts} err=${errorMsg}`)
+
+                this.logger.warn(
+                    `Outbox event failed: ${claimed.id}, attempts=${nextAttempts}, retryAt=${retryAt.toISOString()}`
+                )
             }
         }
+    }
+
+    private async claimEvent(eventId: string) {
+        const lockUntil = new Date(Date.now() + OUTBOX_LOCK_MS)
+
+        const now = new Date()
+
+        const updated = await this.prisma.outboxEvent.updateMany({
+            where: {
+                id: eventId,
+                status: "PENDING",
+                OR: [
+                    { lockedUntil: null },
+                    { lockedUntil: { lt: now } },
+                ],
+            },
+            data: {
+                status: "SENDING",
+                lockedUntil: lockUntil
+            }
+        })
+
+        if(updated.count !== 1) return null
+
+        return this.prisma.outboxEvent.findUnique({
+            where: { id: eventId }
+        })
+    }
+
+    private sleep(ms: number) {
+        return new Promise((resolve) => setTimeout(resolve, ms))
     }
 }

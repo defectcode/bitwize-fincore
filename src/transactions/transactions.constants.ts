@@ -1,0 +1,5 @@
+
+
+export const MAX_TRANSACTION_AMOUNT = 50_000;
+export const DAILY_WALLET_DEBIT_LIMIT = 200_000;
+export const MAX_WALLET_REQUESTS_PER_MINUTE = 10;

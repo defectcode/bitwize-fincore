@@ -3,11 +3,12 @@ import { PrismaService } from 'src/prisma/prisma.service'
 import { AuthorizeDto } from './dto/authorize.dto'
 import { CaptureDto } from './dto/capture.dto'
 import { ReverseDto } from './dto/reverse.dto'
+import { TransactionLimitsService } from './transactions-limits.service'
 
 
 @Injectable()
 export class TransactionsService {
-	constructor(private readonly prisma: PrismaService) {}
+	constructor(private readonly prisma: PrismaService, private readonly limitsService: TransactionLimitsService) {}
 
 	async authorize(dto: AuthorizeDto) {
   		const { cardId, amount, idempotencyKey, merchantId, currency } = dto;
@@ -266,5 +267,32 @@ export class TransactionsService {
 			return reversal
 		})
 		return created
+	}
+
+	async getTransactionById(transactionId: string) {
+		const transaction = await this.prisma.authorization.findUnique({
+			where: { id: transactionId },
+			include: {
+				card: {
+					include: {
+						wallet: {
+							select: {
+								id: true,
+								balance: true,
+								currency: true,
+								status: true,
+								userId: true
+							}
+						}
+					}
+				},
+				capture: true,
+				reversal: true,
+				ledgerEntries: { orderBy: { createdAt: "desc" } }
+			}
+		})
+		if (!transaction) throw new NotFoundException("Transaction not found")
+
+		return transaction 
 	}
 }

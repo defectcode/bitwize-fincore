@@ -1,4 +1,4 @@
-import { Body, Controller, Param, Post } from '@nestjs/common';
+import { Body, Controller, Get, Param, Post } from '@nestjs/common';
 import { TransactionsService } from './transactions.service';
 import { AuthorizeDto } from './dto/authorize.dto'
 import { ReverseDto } from './dto/reverse.dto'
@@ -21,5 +21,10 @@ export class TransactionsController {
 	@Post("/:authId/reverse")
 	reverse(@Param("auth") authId: string, @Body() dto: ReverseDto) {
 		return this.txService.reverse(authId, dto)
+	}
+
+	@Get("/:transactionId")
+	getTransactionId(@Param("transactionId") transactionId: string) {
+		return this.txService.getTransactionById(transactionId)
 	}
 }

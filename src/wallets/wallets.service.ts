@@ -48,10 +48,7 @@ export class WalletsService {
 
         if(!wallet) throw new NotFoundException("Wallet not found")
 
-        const whereClause = {
-            walletId,
-            ...(query.type ? { type: query.type } : {} )
-        }
+        const whereClause = { walletId, ...(query.type ? { type: query.type } : {} ) }
 
         const [entries, total] = await Promise.all([
             this.prisma.ledgerEntry.findMany({
