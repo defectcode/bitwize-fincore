@@ -7,9 +7,10 @@ import { OutboxModule } from './outbox/outbox.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { TransactionsModule } from './transactions/transactions.module';
 import { WalletsModule } from './wallets/wallets.module';
+import { RiskModule } from './risk/risk.module';
 
 @Module({
-  imports: [RedisModule, QueueModule, OutboxModule, PrismaModule, TransactionsModule, WalletsModule],
+  imports: [RedisModule, QueueModule, OutboxModule, PrismaModule, TransactionsModule, WalletsModule, RiskModule],
   controllers: [AppController],
   providers: [AppService],
 })

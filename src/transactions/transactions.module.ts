@@ -3,10 +3,11 @@ import { TransactionsService } from './transactions.service';
 import { TransactionsController } from './transactions.controller';
 import { OutboxModule } from 'src/outbox/outbox.module'
 import { TransactionLimitsService } from './transactions-limits.service'
+import { RiskModule } from 'src/risk/risk.module'
 
 @Global()
 @Module({
-  imports: [OutboxModule],
+  imports: [OutboxModule, RiskModule],
   controllers: [TransactionsController],
   providers: [TransactionsService, TransactionLimitsService],
   exports: [TransactionsService]

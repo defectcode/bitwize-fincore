@@ -64,6 +64,7 @@ model Wallet {
   userId    String
   balance   Int          @default(0)
   currency  String
+  country   String?
   status    WalletStatus @default(ACTIVE)
   createdAt DateTime     @default(now())
   updatedAt DateTime     @updatedAt
@@ -144,4 +145,20 @@ model LedgerEntry {
   @@index([walletId, createdAt])
   @@index([authorizationId])
   @@index([type])
+}
+
+model BlockedMerchant {
+  id         String   @id @default(uuid())
+  merchantId String   @unique
+  reason     String?
+  active     Boolean  @default(true)
+  createAt   DateTime @default(now())
+}
+
+model BlockedCountry {
+  id          String   @id @default(uuid())
+  countryCode String   @unique
+  reason      String?
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now())
 }

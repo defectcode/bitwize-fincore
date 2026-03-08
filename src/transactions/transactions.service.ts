@@ -4,11 +4,16 @@ import { AuthorizeDto } from './dto/authorize.dto'
 import { CaptureDto } from './dto/capture.dto'
 import { ReverseDto } from './dto/reverse.dto'
 import { TransactionLimitsService } from './transactions-limits.service'
+import { RiskService } from 'src/risk/risk.service'
 
 
 @Injectable()
 export class TransactionsService {
-	constructor(private readonly prisma: PrismaService, private readonly limitsService: TransactionLimitsService) {}
+	constructor(
+		private readonly prisma: PrismaService, 
+		private readonly limitsService: TransactionLimitsService ,
+		private readonly riskService: RiskService
+	) {}
 
 	async authorize(dto: AuthorizeDto) {
   		const { cardId, amount, idempotencyKey, merchantId, currency } = dto;
@@ -30,6 +35,11 @@ export class TransactionsService {
 			if (card.wallet.status !== "ACTIVE") throw new ConflictException("Wallet is not active");
 
 			if (card.currency !== currency || card.wallet.currency !== currency) throw new ConflictException("Currency mismatch");
+
+			await this.riskService.validateAuthorizeRisk({
+				merchantId,
+				walletCountry: card.wallet.country
+			})
 
 			const debitedWallet = await tx.wallet.updateMany({
 				where: {
