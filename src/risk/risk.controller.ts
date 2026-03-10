@@ -6,7 +6,6 @@ import { BlockeCountryDto } from './dto/block-country.dto'
 export class RiskController {
   	constructor(private readonly riskService: RiskService) {}
 
-
 	@Get("/blocked-merchants")
 	getBlockedMerchants() {
 		return this.riskService.getBlockedMerchants()
@@ -31,5 +30,4 @@ export class RiskController {
 	unblockCountry(@Param("countryCode") countryCode: string) {
 		return this.riskService.unblockCountry(countryCode)
 	}
-
 }
